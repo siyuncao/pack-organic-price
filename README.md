@@ -1,4 +1,4 @@
-# packprice
+# pack-organic-price
 
 Which pack to buy, and what it costs, across chemical marketplaces.
 
@@ -29,7 +29,9 @@ wastes material; buying the wrong pack wastes money.
 pip install -e .
 ```
 
-No dependencies beyond the standard library.
+Installs as `pack-organic-price`, imports as `packprice` — the long name for
+the package index, the short one for typing. No dependencies beyond the
+standard library.
 
 ## When it fails
 
@@ -61,6 +63,27 @@ Set whichever you have. Sources without a key are skipped silently.
 
 `CHEMSPACE_SHIP_TO` sets the delivery country as a two-letter code, default `US`.
 Prices and availability are country-specific.
+
+## Rate limits
+
+ChemSpace allows 40 requests a minute and reports the remaining budget in
+headers on every response, errors included. The client reads those rather
+than counting its own calls, because the server's number is the one that
+decides and it already accounts for anything else using the same key.
+
+It waits only when the server says nothing is left, then waits out the rest
+of the window. A 429 that slips through anyway is retried once after the
+window closes; only a second failure is reported as an error.
+
+## Tests
+
+```bash
+python -m unittest discover -s tests
+```
+
+No network, no keys, milliseconds. Everything tested is the arithmetic:
+price parsing, pack conversion, ranking, and whether a source failed or
+honestly found nothing.
 
 ## Coverage
 

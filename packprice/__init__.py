@@ -1,5 +1,5 @@
 """
-packprice — what pack do I buy, and what does it cost.
+pack-organic-price — what pack do I buy, and what does it cost.
 
 Chemical marketplaces answer "what does this molecule cost" well. A synthetic
 chemist working from a published procedure has a different question: the
@@ -8,7 +8,7 @@ how much is left in the bottle afterwards.
 
 Those questions look similar and are not. Ask a marketplace the first one and
 it will happily quote a 30 mg vial, which is a real price for a quantity
-nobody running this reaction can use. So packprice puts the AMOUNT NEEDED
+nobody running this reaction can use. So this package puts the AMOUNT NEEDED
 into the query, asks every marketplace it has a key for, and returns the
 offers in one shape, closest-to-what-you-need first.
 

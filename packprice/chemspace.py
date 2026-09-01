@@ -73,6 +73,61 @@ MAX_OPTIONS = 12
 
 _token = {"value": "", "expires_at": 0.0}
 
+# What the server last told us about our own quota. Populated from the
+# X-Rate-Limit-* headers that come back on every response, including errors.
+_quota = {"remaining": None, "reset_at": 0.0}
+
+
+def _note_quota(headers, now: float = None) -> None:
+    """
+    Record what the server says is left.
+
+    ChemSpace reports the quota on every response: how many requests remain
+    in the current window and how many seconds until it resets. Reading that
+    is better than counting requests here, because the server's number is the
+    one that decides, and it already accounts for calls made by anything else
+    using the same key.
+    """
+    now = time.time() if now is None else now
+    try:
+        remaining = headers.get("X-Rate-Limit-Remaining")
+        reset = headers.get("X-Rate-Limit-Reset")
+    except AttributeError:
+        return
+    if remaining is not None:
+        try:
+            _quota["remaining"] = int(remaining)
+        except (TypeError, ValueError):
+            pass
+    if reset is not None:
+        try:
+            _quota["reset_at"] = now + int(reset)
+        except (TypeError, ValueError):
+            pass
+
+
+def _wait_needed(now: float = None) -> float:
+    """
+    Seconds to wait before the next request, 0 if none.
+
+    Only waits when the server has said there is nothing left. Slowing down
+    at 5 remaining would be guessing; the quota is there to be used.
+    """
+    now = time.time() if now is None else now
+    if _quota["remaining"] is None or _quota["remaining"] > 0:
+        return 0.0
+    return max(0.0, _quota["reset_at"] - now)
+
+
+def _respect_quota() -> None:
+    """Sleep out the rest of the window if the quota is spent."""
+    wait = _wait_needed()
+    if wait > 0:
+        # A whole window is 60 seconds. Waiting it out is slow and correct;
+        # hammering a 429 is fast and gets the key throttled harder.
+        time.sleep(wait + 0.5)
+        _quota["remaining"] = None
+
 
 def _auth() -> str:
     """Access token, cached until shortly before it expires."""
@@ -138,9 +193,14 @@ def _search_exact(smiles: str) -> dict:
         },
         method="POST",
     )
+    _respect_quota()
     try:
-        return json.load(urllib.request.urlopen(req, timeout=90))
+        response = urllib.request.urlopen(req, timeout=90)
+        _note_quota(response.headers)
+        return json.load(response)
     except urllib.error.HTTPError as e:
+        _note_quota(e.headers)
+
         # A token lasts about four hours, so a long run can outlive one. Drop
         # it and retry once with a fresh one; only give up if that fails too.
         if e.code == 401:
@@ -148,11 +208,31 @@ def _search_exact(smiles: str) -> dict:
             token = _auth()
             req.headers["Authorization"] = f"Bearer {token}"
             try:
-                return json.load(urllib.request.urlopen(req, timeout=90))
+                response = urllib.request.urlopen(req, timeout=90)
+                _note_quota(response.headers)
+                return json.load(response)
             except Exception as retry_error:
                 raise SourceError("chemspace", f"after token refresh: {retry_error}")
+
+        # 429 means we asked too fast despite the headers, which happens when
+        # something else is using the same key. Wait the window out once, then
+        # try again. Only the second failure is reported as an error.
         if e.code == 429:
-            raise SourceError("chemspace", "rate limit exceeded, 40 requests a minute")
+            reset = e.headers.get("X-Rate-Limit-Reset") if e.headers else None
+            try:
+                time.sleep(min(65, int(reset) + 0.5))
+            except (TypeError, ValueError):
+                time.sleep(60)
+            _quota["remaining"] = None
+            try:
+                response = urllib.request.urlopen(req, timeout=90)
+                _note_quota(response.headers)
+                return json.load(response)
+            except Exception:
+                raise SourceError(
+                    "chemspace", "rate limited twice, 40 requests a minute"
+                )
+
         raise SourceError("chemspace", f"HTTP {e.code}")
     except Exception as e:
         raise SourceError("chemspace", f"{type(e).__name__}: {e}")
