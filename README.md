@@ -202,6 +202,11 @@ marketplaces first, and this package would not exist without having read it.
 It targets drug discovery, quotes at milligram scale, and its ChemSpace
 endpoint has returned 404 since the last commit two years ago.
 
+## Releasing
+
+See [RELEASING.md](RELEASING.md). Not published to PyPI yet — install from
+source with `pip install -e .`.
+
 ## Licence
 
 BSD-3-Clause.
