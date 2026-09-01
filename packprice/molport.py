@@ -141,11 +141,15 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
             {
                 "supplier": r.get("supplier_name") or "unknown",
                 "catalog_number": r.get("product_id") or r.get("molport_id"),
-                "product_url": (
-                    f"https://www.molport.com/shop/molecule-link/{r['molport_id']}"
-                    if r.get("molport_id")
-                    else None
-                ),
+                # No link. MolPort's API returns no product URL, and every
+                # format guessed for one 404s or lands on the generic
+                # directory page, which answers identically for a real ID and
+                # a made-up one. A link that does not work is worse than no
+                # link: it looks like evidence and is not. Same rule as
+                # prices, where a missing one is reported rather than
+                # invented. To check a row by hand, paste the SMILES into
+                # List Search on molport.com.
+                "product_url": None,
                 "purity_offered": f"{r['purity']}%" if r.get("purity") else None,
                 "pack_size_amount": pack_amount,
                 "pack_size_unit": pack_unit,
