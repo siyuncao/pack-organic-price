@@ -1,0 +1,43 @@
+# Runs on every push and pull request.
+#
+# No API keys are configured here, deliberately. Every test in this suite is
+# offline: the arithmetic, the ranking, the cache and the rate limiter are all
+# tested against fake sources and a fake clock. A test suite that needed
+# credentials could not run on a fork, would break when a marketplace had an
+# outage, and would be quietly skipped until nobody trusted it.
+#
+# What that does NOT cover is whether the marketplaces still answer the way
+# this code expects. That is what the benchmark in BENCHMARK.md is for, and it
+# is run by hand.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check the CLI starts
+        run: pack-price --version

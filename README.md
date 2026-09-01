@@ -152,9 +152,18 @@ window closes; only a second failure is reported as an error.
 python -m unittest discover -s tests
 ```
 
-No network, no keys, milliseconds. Everything tested is the arithmetic:
-price parsing, pack conversion, ranking, and whether a source failed or
-honestly found nothing.
+No network, no keys, milliseconds. They run on every push against Python 3.9,
+3.11 and 3.13.
+
+That the suite needs no credentials is deliberate: a test that required API
+keys could not run on a fork, would fail whenever a marketplace had an
+outage, and would end up skipped until nobody trusted it. What the suite does
+not cover — whether the marketplaces still answer the way this code expects —
+is what [BENCHMARK.md](BENCHMARK.md) is for, and that is run by hand.
+
+Everything tested here is the arithmetic: price parsing, pack conversion,
+ranking, purity banding, the cache and the rate limiter, and whether a source
+failed or honestly found nothing.
 
 ## Coverage
 
