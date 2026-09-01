@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pack-organic-price"
+version = "0.1.0"
+description = "Which pack to buy, and what it costs, across chemical marketplaces"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "BSD-3-Clause"}
+authors = [{name = "Siyun Cao"}]
+keywords = ["chemistry", "procurement", "molport", "chemspace", "smiles"]
+dependencies = []
+
+[project.urls]
+Source = "https://github.com/siyuncao/pack-organic-price"
+
+[tool.setuptools]
+packages = ["packprice"]
