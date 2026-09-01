@@ -170,13 +170,17 @@ failed or honestly found nothing.
 Measured by hand against the fifteen orderable compounds of
 *Org. Synth.* **2023**, *100*, 136.
 
-| Source | Answered | Notes |
-|---|---|---|
-| MolPort | 5 / 15 | Best price on four of the five it answered |
-| ChemSpace | 15 / 15 | Includes TEMPO and zinc dust, which MolPort lists as discontinued |
-| Mcule | 4 / 5 sampled | Quotes the exact amount asked for, no pack sizes |
+| Source | Answered | Cheapest on | Mean seconds |
+|---|---|---|---|
+| ChemSpace | 15 / 15 | 12 | 3.1 |
+| Mcule | 8 / 15 | 1 | 66.1 |
+| MolPort | 5 / 15 | 2 | 10.2 |
 
-None is a superset of the others. Ask all three.
+None is a superset of the others, so ask all three — but ChemSpace answered
+everything and was usually cheapest, and Mcule is twenty times slower than
+the other two.
+
+Full table, method and caveats in [BENCHMARK.md](BENCHMARK.md).
 
 Mcule works differently: it prices a quantity rather than listing bottles, so
 asking for 7.6 g returns a quote for 7.6 g. That removes overbuying entirely
