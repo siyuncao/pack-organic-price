@@ -46,9 +46,13 @@ It targets drug discovery, quotes at milligram scale, and its ChemSpace
 endpoint has returned 404 since their last commit two years ago.
 """
 
-from typing import List, Optional
+import logging
+from typing import Dict, List, NamedTuple, Optional
 
 from . import chemspace, molport
+from .errors import SourceError
+
+log = logging.getLogger(__name__)
 
 __version__ = "0.1.0"
 
@@ -114,26 +118,82 @@ def find_options(
 
     Offers quoted by volume cannot be compared this way and sort last.
 
-    Returns [] when nothing is found. That is an answer, not an error.
+    Returns [] when nothing is found. Note that this cannot distinguish
+    "nobody sells it" from "the marketplace was unreachable" — use search()
+    when that difference matters, which for a purchase decision it usually
+    does.
     """
+    return search(smiles, grams, name, sources).options
+
+
+class Result(NamedTuple):
+    """
+    What a search found, and what it could not reach.
+
+    errors maps a source to why it failed. Empty means every source answered,
+    and an empty options list then genuinely means nobody sells this. That
+    distinction is the whole reason this type exists.
+    """
+
+    options: List[dict]
+    errors: Dict[str, str]
+
+    @property
+    def complete(self) -> bool:
+        """True when every requested source answered."""
+        return not self.errors
+
+
+def search(
+    smiles: str,
+    grams: float = None,
+    name: str = "",
+    sources: List[str] = None,
+) -> Result:
+    """
+    find_options, but it also tells you which sources failed.
+
+    Use this when the answer matters: an empty result from a working
+    marketplace means nobody sells the compound, and an empty result from a
+    marketplace that timed out means nothing at all.
+    """
+    if not smiles:
+        return Result([], {})
+
     wanted = sources or list(SOURCES)
-    options = []
+    options: List[dict] = []
+    errors: Dict[str, str] = {}
 
     for key in wanted:
         module = SOURCES.get(key)
         if module is None:
+            errors[key] = "no such source"
             continue
+
+        # A source with no key is skipped, not failed. Not configuring
+        # Mcule is a choice; Mcule being down is an incident.
+        if not getattr(module, "API_KEY", ""):
+            continue
+
         try:
             found = module.find_options(smiles, grams, name) or []
-        except Exception:
-            # One marketplace being down must not lose the others' answers.
-            found = []
+        except SourceError as e:
+            # One marketplace being down must not lose the others' answers,
+            # but it must not look like an answer either.
+            log.warning("%s failed for %s: %s", key, smiles, e.detail)
+            errors[key] = e.detail
+            continue
+        except Exception as e:
+            log.warning("%s raised for %s: %r", key, smiles, e)
+            errors[key] = f"{type(e).__name__}: {e}"
+            continue
+
         for option in found:
             option["source"] = key
             options.append(option)
 
     options.sort(key=lambda o: _total_cost(o, grams))
-    return options
+    return Result(options, errors)
 
 
 def _total_cost(option: dict, grams: float = None) -> tuple:

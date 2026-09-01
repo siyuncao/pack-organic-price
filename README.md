@@ -31,6 +31,24 @@ pip install -e .
 
 No dependencies beyond the standard library.
 
+## When it fails
+
+`find_options` returns a list, and an empty list is ambiguous: nobody sells the
+compound, or the marketplace was unreachable. Those lead to opposite decisions.
+`search` keeps them apart.
+
+```python
+from packprice import search
+
+result = search("Fc1ccccn1", grams=7.6)
+result.options      # same list find_options returns
+result.errors       # {'molport': 'HTTP 401: Invalid API key!'}
+result.complete     # False — at least one source did not answer
+```
+
+A source with no API key set is skipped silently and is not an error: not
+configuring Mcule is a choice, Mcule being down is an incident.
+
 ## Keys
 
 Set whichever you have. Sources without a key are skipped silently.

@@ -1,10 +1,10 @@
 """
-Day 4.2 — MolPort: supplier data without scraping.
+MolPort: supplier data without scraping.
 
 A marketplace API covering 80+ suppliers. You send a SMILES and an amount and
 get back a real offer: supplier, pack size, price, purity, hazard flag,
 delivery days. No fetching, no rendering, no extraction, so none of the three
-failure modes that plague supplier_lookup.py can happen here.
+failure modes of scraping a supplier website can happen here.
 
 Measured against pages verified by hand, it is both cheaper and more honest
 than the scraper:
@@ -36,6 +36,8 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
+from .errors import SourceError
+
 API_KEY = os.environ.get("MOLPORT_API_KEY", "")
 BASE = "https://api.molport.com/v1"
 
@@ -53,9 +55,10 @@ def _call(method: str, path: str, body: dict = None) -> dict:
     try:
         return json.load(urllib.request.urlopen(req, timeout=90))
     except urllib.error.HTTPError as e:
-        return {"error": e.read()[:300].decode("utf8", "replace"), "code": e.code}
+        body = e.read()[:200].decode("utf8", "replace")
+        raise SourceError("molport", f"HTTP {e.code}: {body}")
     except Exception as e:
-        return {"error": f"{type(e).__name__}: {e}"}
+        raise SourceError("molport", f"{type(e).__name__}: {e}")
 
 
 def _parse_unit(unit: str):
@@ -71,7 +74,7 @@ def _parse_unit(unit: str):
 
 def find_options(smiles: str, grams: float, name: str = "") -> list:
     """
-    One compound, one quote request, in the same shape supplier_lookup returns.
+    One compound, one quote request, in this package's option shape.
 
     Returns [] when MolPort has no offer. That is a real answer, not a
     failure: it means no supplier in their network currently sells it, and
@@ -99,12 +102,14 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
             "match_types": ["perfect", "exact", "racemate", "any"],
             "selection_method": "lowest price",
             "shipping_method": "direct",
-            "search_name": name[:40] or "paper-to-order",
+            "search_name": name[:40] or "pack-organic-price",
         },
     )
     key = sub.get("search_key")
     if not key:
-        return []
+        # A 200 with no search key means MolPort understood the request and
+        # declined it. Its own message is more useful than a bare [].
+        raise SourceError("molport", sub.get("message") or "no search key returned")
 
     # Processing is asynchronous, so poll. It normally finishes in seconds.
     for _ in range(20):
@@ -112,7 +117,7 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
             break
         time.sleep(3)
     else:
-        return []
+        raise SourceError("molport", "search did not finish within 60 seconds")
 
     data = _call("GET", f"/list-searches/{key}")
     rows = (data.get("request") or {}).get("results") or []

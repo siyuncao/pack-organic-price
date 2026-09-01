@@ -44,6 +44,8 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
+from .errors import SourceError
+
 API_KEY = os.environ.get("CHEMSPACE_API_KEY", "")
 BASE = "https://api.chem-space.com"
 VERSION = "4.1"
@@ -86,8 +88,10 @@ def _auth() -> str:
     )
     try:
         data = json.load(urllib.request.urlopen(req, timeout=60))
-    except Exception:
-        return ""
+    except urllib.error.HTTPError as e:
+        raise SourceError("chemspace", f"auth failed, HTTP {e.code}")
+    except Exception as e:
+        raise SourceError("chemspace", f"auth failed, {type(e).__name__}: {e}")
 
     _token["value"] = data.get("access_token", "")
     # Renew a minute early rather than discovering expiry as a 401 mid-run.
@@ -117,7 +121,7 @@ def _multipart(fields: dict) -> tuple:
 def _search_exact(smiles: str) -> dict:
     token = _auth()
     if not token:
-        return {}
+        raise SourceError("chemspace", "no access token returned")
 
     body, content_type = _multipart({"SMILES": smiles})
     url = (
@@ -137,13 +141,21 @@ def _search_exact(smiles: str) -> dict:
     try:
         return json.load(urllib.request.urlopen(req, timeout=90))
     except urllib.error.HTTPError as e:
-        # 401 code 1 means the token aged out mid-run. Drop it and let the
-        # next call buy a fresh one rather than failing the whole paper.
+        # A token lasts about four hours, so a long run can outlive one. Drop
+        # it and retry once with a fresh one; only give up if that fails too.
         if e.code == 401:
             _token["value"] = ""
-        return {}
-    except Exception:
-        return {}
+            token = _auth()
+            req.headers["Authorization"] = f"Bearer {token}"
+            try:
+                return json.load(urllib.request.urlopen(req, timeout=90))
+            except Exception as retry_error:
+                raise SourceError("chemspace", f"after token refresh: {retry_error}")
+        if e.code == 429:
+            raise SourceError("chemspace", "rate limit exceeded, 40 requests a minute")
+        raise SourceError("chemspace", f"HTTP {e.code}")
+    except Exception as e:
+        raise SourceError("chemspace", f"{type(e).__name__}: {e}")
 
 
 def find_options(smiles: str, grams: float = None, name: str = "") -> list:
