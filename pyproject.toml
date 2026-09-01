@@ -13,6 +13,9 @@ authors = [{name = "Siyun Cao"}]
 keywords = ["chemistry", "procurement", "molport", "chemspace", "smiles"]
 dependencies = []
 
+[project.scripts]
+pack-price = "packprice.cli:main"
+
 [project.urls]
 Source = "https://github.com/siyuncao/pack-organic-price"
 

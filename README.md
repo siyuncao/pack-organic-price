@@ -23,6 +23,33 @@ it takes to reach the amount needed, times the price. Needing 30 g, a 50 g bottl
 at $30 beats a 25 g bottle at $40, even though the 50 g overshoots. Overbuying
 wastes material; buying the wrong pack wastes money.
 
+## Command line
+
+```bash
+pack-price "Fc1ccccn1" --grams 7.6
+```
+
+```
+SOURCE     SUPPLIER                         PACK     PRICE  PURITY     TOTAL  AGE
+---------------------------------------------------------------------------------
+chemspace  Angene International Limit       10 g      $4.5     98%      $4.5  live
+mcule      Mcule                         7600 mg        $6     98%        $6  live
+molport    A2B Chem LLC                     25 g       $10     99%       $10  live
+```
+
+`TOTAL` is what you actually pay: the price times the number of packs it takes
+to reach the amount needed, shown as `$54 x2` when it is more than one.
+
+```bash
+pack-price "CC1(C)CCCC(C)(C)N1[O]" --grams 26.8 --purity 99   # band by purity
+pack-price "[Zn]" --grams 16.3 --json                          # raw output
+pack-price "CCO" --sources molport,mcule                       # a subset
+pack-price --clear-cache
+```
+
+Exit status is 1 when a source failed, so a script can tell an incomplete
+answer from a complete one.
+
 ## Install
 
 ```bash
