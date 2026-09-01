@@ -72,6 +72,24 @@ def _grams(option: dict) -> Optional[float]:
     return amount * scale if scale and amount is not None else None
 
 
+def _purity(option: dict) -> Optional[float]:
+    """
+    Purity as a number, or None when the supplier does not state one.
+
+    Suppliers write it as "98%", ">=98", "95.5", or leave it out. None means
+    unknown, which is not the same as low and must not be treated as either.
+    """
+    import re
+
+    match = re.search(r"[\d.]+", str(option.get("purity_offered") or ""))
+    if not match:
+        return None
+    try:
+        return float(match.group())
+    except ValueError:
+        return None
+
+
 def _price(option: dict) -> Optional[float]:
     """
     The number in a price string, or None.
@@ -96,6 +114,7 @@ def find_options(
     grams: float = None,
     name: str = "",
     sources: List[str] = None,
+    min_purity: float = None,
 ) -> List[dict]:
     """
     Every offer for one compound, from every marketplace with a key set.
@@ -124,7 +143,7 @@ def find_options(
     when that difference matters, which for a purchase decision it usually
     does.
     """
-    return search(smiles, grams, name, sources).options
+    return search(smiles, grams, name, sources, min_purity).options
 
 
 class Result(NamedTuple):
@@ -150,6 +169,7 @@ def search(
     grams: float = None,
     name: str = "",
     sources: List[str] = None,
+    min_purity: float = None,
 ) -> Result:
     """
     find_options, but it also tells you which sources failed.
@@ -209,8 +229,40 @@ def search(
             option["source"] = key
             options.append(option)
 
-    options.sort(key=lambda o: _total_cost(o, grams))
+    if min_purity is not None:
+        for option in options:
+            option["meets_purity"] = _meets_purity(option, min_purity)
+
+    options.sort(key=lambda o: (_purity_rank(o, min_purity), _total_cost(o, grams)))
     return Result(options, errors)
+
+
+def _meets_purity(option: dict, min_purity: float):
+    """True, False, or None when the supplier states no purity."""
+    purity = _purity(option)
+    return None if purity is None else purity >= min_purity
+
+
+def _purity_rank(option: dict, min_purity: float = None) -> int:
+    """
+    Which band an offer falls into when a purity is required.
+
+    0  states a purity that meets the requirement
+    1  states no purity at all
+    2  states a purity below the requirement
+
+    Offers that fail are ranked last rather than dropped, for the same reason
+    an unpriced offer is kept: a chemist deciding whether 95% will do is a
+    better outcome than a list that quietly went shorter. An offer with no
+    stated purity sits between the two, because unknown is not the same as
+    low, and cannot be treated as either.
+    """
+    if min_purity is None:
+        return 0
+    meets = _meets_purity(option, min_purity)
+    if meets is None:
+        return 1
+    return 0 if meets else 2
 
 
 def _total_cost(option: dict, grams: float = None) -> tuple:

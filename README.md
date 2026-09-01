@@ -33,6 +33,26 @@ Installs as `pack-organic-price`, imports as `packprice` — the long name for
 the package index, the short one for typing. No dependencies beyond the
 standard library.
 
+## Purity
+
+A procedure that specifies 99% cannot be run on 90% material, however cheap it
+is. Pass the purity the procedure requires and offers are banded accordingly.
+
+```python
+find_options("CC1(C)CCCC(C)(C)N1[O]", grams=26.8, min_purity=99)
+```
+
+```
+meets the requirement   first
+states no purity        next
+below the requirement   last
+```
+
+Nothing is dropped, and each offer carries `meets_purity` as `True`, `False`
+or `None`. A chemist deciding whether 95% will do is a better outcome than a
+list that quietly went shorter — and "no purity stated" is not the same as
+"low purity", so it is neither passed nor failed.
+
 ## When it fails
 
 `find_options` returns a list, and an empty list is ambiguous: nobody sells the
