@@ -1,7 +1,7 @@
 """
 ChemSpace: a second marketplace, for the compounds MolPort does not stock.
 
-MolPort answered 5 of the 15 orderable compounds in the oxamination paper.
+MolPort answered 5 of the 15 orderable compounds in the benchmark below.
 The other 10 fell through to the scraper, which is slow and unreliable. A
 second marketplace is the cheapest way to close part of that gap, and the two
 catalogues do not overlap completely: ChemSpace carries suppliers MolPort
@@ -58,13 +58,15 @@ VERSION = "4.1"
 CATEGORIES = "CSSB,CSMB"
 
 # Two-letter ISO. Prices and availability are country-specific, so this is
-# not cosmetic. NOTE: molport.py currently asks for "US" while this asks for
-# "GB", which means the two are not strictly comparable until one of them
-# changes. Left as it is because the honest default is where the lab is.
-SHIP_TO = os.environ.get("CHEMSPACE_SHIP_TO", "GB")
+# not cosmetic: the same bottle can be listed by different suppliers, at
+# different prices, depending on where it ships.
+#
+# US to match molport.py, so the two sources are comparable. Override with
+# CHEMSPACE_SHIP_TO when ordering somewhere else.
+SHIP_TO = os.environ.get("CHEMSPACE_SHIP_TO", "US")
 
 # ChemSpace lists every pack a vendor sells, so a popular building block can
-# come back with dozens of rows. reorder.py only needs enough to choose from.
+# come back with dozens of rows. A caller only needs enough to choose from.
 MAX_OPTIONS = 12
 
 _token = {"value": "", "expires_at": 0.0}
@@ -100,7 +102,7 @@ def _multipart(fields: dict) -> tuple:
     Small enough to write out: a boundary, one part per field, a closing
     boundary. Using requests here would mean a dependency for six lines.
     """
-    boundary = "----paper-to-order-boundary"
+    boundary = "----pack-organic-price-boundary"
     body = b""
     for name, value in fields.items():
         body += (
@@ -146,12 +148,12 @@ def _search_exact(smiles: str) -> dict:
 
 def find_options(smiles: str, grams: float = None, name: str = "") -> list:
     """
-    One compound, in the same shape molport.find_options and supplier_lookup
-    return, so main.py can treat all three sources identically.
+    One compound, in the same shape molport.find_options returns, so a
+    caller can treat every source identically.
 
     grams is accepted but not sent: ChemSpace has no amount parameter, it
     returns every pack a vendor lists. It is used to sort, so the packs
-    closest to what the procedure needs come first and reorder.py sees the
+    closest to what the procedure needs come first and the caller sees the
     useful ones even when the list is truncated.
 
     Returns [] when ChemSpace has no priced offer, which is a real answer and
