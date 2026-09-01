@@ -59,10 +59,34 @@ Set whichever you have. Sources without a key are skipped silently.
 |---|---|
 | `MOLPORT_API_KEY` | molport.com |
 | `CHEMSPACE_API_KEY` | info@chem-space.com |
-| `MCULE_API_KEY` | mcule.com (not yet implemented) |
+| `MCULE_API_KEY` | mcule.com/accounts/api-access/ |
 
 `CHEMSPACE_SHIP_TO` sets the delivery country as a two-letter code, default `US`.
 Prices and availability are country-specific.
+
+## Caching
+
+Answers are cached to disk for **seven days**. Asking the same question twice
+costs one request, not two.
+
+Seven days is a judgement, not a technical fact, so here is the reasoning. A
+chemist grading these results scored a price quoted today as 5 out of 5, a
+month old as 4, two months old as 3. Seven days sits comfortably inside
+"today" while still absorbing the repeated runs of a working session.
+
+```bash
+PACKPRICE_CACHE_DAYS=30    # keep prices for a month
+PACKPRICE_CACHE_DAYS=0     # no cache at all
+PACKPRICE_CACHE_DIR=...    # default ~/.cache/pack-organic-price
+```
+
+Failures are never cached — a timeout is not an answer. An honest empty
+result is, because "no supplier sells this" is a real finding, and the expiry
+is what stops it being true forever.
+
+Each cached option carries `retrieved_at`, so a caller can show the age
+rather than implying the price is live. `cache.age_days(option)` returns it,
+or `None` when the price came back live.
 
 ## Rate limits
 
@@ -94,8 +118,15 @@ Measured by hand against the fifteen orderable compounds of
 |---|---|---|
 | MolPort | 5 / 15 | Best price on four of the five it answered |
 | ChemSpace | 15 / 15 | Includes TEMPO and zinc dust, which MolPort lists as discontinued |
+| Mcule | 4 / 5 sampled | Quotes the exact amount asked for, no pack sizes |
 
-Neither is a superset of the other. Ask both.
+None is a superset of the others. Ask all three.
+
+Mcule works differently: it prices a quantity rather than listing bottles, so
+asking for 7.6 g returns a quote for 7.6 g. That removes overbuying entirely
+when it has the compound. Its amounts are in milligrams, and its defaults are
+1 mg to 10 mg, which is a reminder of who it is built for — the amount needed
+is sent as-is rather than rounded down to something it is likely to stock.
 
 ## What this is not
 

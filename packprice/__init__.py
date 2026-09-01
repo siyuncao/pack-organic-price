@@ -49,7 +49,7 @@ endpoint has returned 404 since their last commit two years ago.
 import logging
 from typing import Dict, List, NamedTuple, Optional
 
-from . import chemspace, molport
+from . import cache, chemspace, mcule, molport
 from .errors import SourceError
 
 log = logging.getLogger(__name__)
@@ -59,6 +59,7 @@ __version__ = "0.1.0"
 SOURCES = {
     "molport": molport,
     "chemspace": chemspace,
+    "mcule": mcule,
 }
 
 
@@ -175,6 +176,17 @@ def search(
         if not getattr(module, "API_KEY", ""):
             continue
 
+        # A cached answer is still an answer, and costs no request. The
+        # config string goes into the key because shipping country and
+        # category filters change what comes back.
+        config = f"{getattr(module, 'SHIP_TO', '')}:{getattr(module, 'CATEGORIES', '')}"
+        found = cache.get(key, smiles, grams, config)
+        if found is not None:
+            for option in found:
+                option["source"] = key
+                options.append(option)
+            continue
+
         try:
             found = module.find_options(smiles, grams, name) or []
         except SourceError as e:
@@ -187,6 +199,11 @@ def search(
             log.warning("%s raised for %s: %r", key, smiles, e)
             errors[key] = f"{type(e).__name__}: {e}"
             continue
+
+        # Only successes are cached. A failure reaching this point would
+        # have hit `continue` above, which is the whole reason those are
+        # separate branches.
+        cache.put(key, smiles, grams, found, config)
 
         for option in found:
             option["source"] = key
