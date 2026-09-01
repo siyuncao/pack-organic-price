@@ -103,9 +103,16 @@ def find_options(
     Each returned dict carries a "source" saying which marketplace answered,
     so a caller can tell a marketplace price from a scraped one and report it.
 
-    Ordering: packs that cover the amount needed come first, smallest such
-    pack first, then everything else by price. A 25 g bottle when you need
-    7.6 g beats a 5 g bottle you would have to buy twice.
+    Ordering: cheapest way to end up with enough. For each offer, work out
+    how many packs it takes to reach the amount needed and what that costs,
+    then sort by that total.
+
+    This is not the same as the best fit. Needing 30 g, a 50 g bottle at $30
+    beats a 25 g bottle at $40, even though the 50 g overshoots and the 25 g
+    does not even cover it. Overbuying wastes material; buying the wrong pack
+    wastes money, and money is what is being minimised here.
+
+    Offers quoted by volume cannot be compared this way and sort last.
 
     Returns [] when nothing is found. That is an answer, not an error.
     """
@@ -125,18 +132,34 @@ def find_options(
             option["source"] = key
             options.append(option)
 
-    def rank(option):
-        pack = _grams(option)
-        price = _price(option)
-        covers = grams is not None and pack is not None and pack >= grams
-        return (
-            0 if covers else 1,
-            pack if covers else (price if price is not None else float("inf")),
-            price if price is not None else float("inf"),
-        )
-
-    options.sort(key=rank)
+    options.sort(key=lambda o: _total_cost(o, grams))
     return options
+
+
+def _total_cost(option: dict, grams: float = None) -> tuple:
+    """
+    What this offer costs to satisfy the need, as a sort key.
+
+    Packs are indivisible, so needing 30 g of something sold in 25 g bottles
+    means buying two of them. The comparison is between total prices paid,
+    not between unit prices, because a cheaper price per gram on a pack you
+    have to buy three of is not cheaper.
+
+    Returns a tuple so unusable offers sort last rather than crashing the
+    run: no price, or a pack quoted by volume when the need is a mass.
+    """
+    import math
+
+    price = _price(option)
+    pack = _grams(option)
+
+    if price is None:
+        return (2, float("inf"))
+    if grams is None or pack is None or pack <= 0:
+        return (1, price)
+
+    packs = max(1, math.ceil(grams / pack))
+    return (0, packs * price)
 
 
 def cheapest(smiles: str, grams: float = None, **kwargs) -> Optional[dict]:

@@ -18,8 +18,10 @@ find_options("Fc1ccccn1", grams=7.6)
 #   'price': '$10', 'source': 'molport', 'purity_offered': '98%', ...}]
 ```
 
-Packs that cover the amount needed come first, smallest such pack first. A 25 g
-bottle when you need 7.6 g beats a 5 g bottle you would have to buy twice.
+Results are ranked by the **cheapest way to end up with enough**: how many packs
+it takes to reach the amount needed, times the price. Needing 30 g, a 50 g bottle
+at $30 beats a 25 g bottle at $40, even though the 50 g overshoots. Overbuying
+wastes material; buying the wrong pack wastes money.
 
 ## Install
 
@@ -39,7 +41,7 @@ Set whichever you have. Sources without a key are skipped silently.
 | `CHEMSPACE_API_KEY` | info@chem-space.com |
 | `MCULE_API_KEY` | mcule.com (not yet implemented) |
 
-`CHEMSPACE_SHIP_TO` sets the delivery country as a two-letter code, default `GB`.
+`CHEMSPACE_SHIP_TO` sets the delivery country as a two-letter code, default `US`.
 Prices and availability are country-specific.
 
 ## Coverage
