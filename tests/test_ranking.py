@@ -9,9 +9,13 @@ The cases are the ones that actually went wrong, or that encode a decision
 someone might otherwise "tidy up" later without realising it was deliberate.
 """
 
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 import packprice
+from packprice import cache
 from packprice import _grams, _price, _total_cost, search
 
 
@@ -158,8 +162,18 @@ class Failures(unittest.TestCase):
     def setUp(self):
         self._real = packprice.SOURCES.copy()
 
+        # Point the cache at a throwaway directory. Without this the tests
+        # write to the developer's real cache, and worse, a result cached by
+        # one test is served to the next one, so a source that should have
+        # been called never is.
+        self.tmp = Path(tempfile.mkdtemp())
+        self._cache_dir = cache.CACHE_DIR
+        cache.CACHE_DIR = self.tmp
+
     def tearDown(self):
         packprice.SOURCES = self._real
+        cache.CACHE_DIR = self._cache_dir
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_empty_from_a_working_source_is_complete(self):
         packprice.SOURCES = {"test": FakeSource(options=[])}
