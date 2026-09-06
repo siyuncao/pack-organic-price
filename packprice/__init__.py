@@ -191,8 +191,15 @@ def search(
         # A cached answer is still an answer, and costs no request. The
         # config string goes into the key because shipping country, category
         # filters and density all change what comes back.
+        # Both spellings, because the vendor modules do not agree: chemspace
+        # calls it SHIP_TO and molport calls it SHIPPING_COUNTRY. Reading only
+        # the first left molport's country out of the key entirely, so a US
+        # answer was served for a GB query for seven days.
+        ship_to = getattr(module, "SHIP_TO", "") or getattr(
+            module, "SHIPPING_COUNTRY", ""
+        )
         config = (
-            f"{getattr(module, 'SHIP_TO', '')}:"
+            f"{ship_to}:"
             f"{getattr(module, 'CATEGORIES', '')}:{density or ''}"
         )
         found = cache.get(key, smiles, grams, config)

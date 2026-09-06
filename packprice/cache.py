@@ -51,11 +51,20 @@ def _key(source: str, smiles: str, grams: float, config: str = "") -> str:
     """
     One cache file per distinct question.
 
-    Anything that changes the answer belongs in the key. The amount is
-    rounded to a gram because asking for 7.6 g and 7.61 g is the same
-    question, and a key that treats them differently caches nothing.
+    Anything that changes the answer belongs in the key. At gram scale the
+    amount is rounded to a gram, because asking for 7.6 g and 7.61 g is the
+    same question and a key that treats them differently caches nothing.
+
+    Below a gram it is kept to the milligram. Whole-gram rounding collapsed
+    every sub-gram amount to the same key, and Mcule quotes at milligram
+    resolution, so 5 mg and 400 mg were being served each other's price.
     """
-    amount = "any" if not grams else str(int(round(grams)))
+    if not grams:
+        amount = "any"
+    elif grams >= 1:
+        amount = str(int(round(grams)))
+    else:
+        amount = f"{round(grams, 4):g}"
     raw = "|".join([source, smiles, amount, config])
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 

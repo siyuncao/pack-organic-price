@@ -105,12 +105,18 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
     failure: it means no supplier in their network currently sells it, and
     the caller should fall back to the scraper.
     """
-    if not API_KEY or not smiles or not grams:
+    if not API_KEY or not smiles:
         return []
 
     # amount must be an integer, and asking for less than 1 g of anything is
     # below the smallest pack any supplier lists.
-    amount = max(1, round(grams))
+    #
+    # grams is optional throughout the public API (cheapest(smiles), the CLI
+    # without --grams), so a missing amount asks for the smallest pack rather
+    # than returning []. Returning [] here would say "MolPort has no offer"
+    # about a question MolPort was never asked, and search() would report that
+    # as a complete answer.
+    amount = max(1, round(grams)) if grams else 1
 
     sub = _call(
         "POST",
