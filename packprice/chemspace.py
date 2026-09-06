@@ -248,7 +248,9 @@ def _search_exact(smiles: str) -> dict:
         raise SourceError("chemspace", f"{type(e).__name__}: {e}")
 
 
-def find_options(smiles: str, grams: float = None, name: str = "") -> list:
+def find_options(
+    smiles: str, grams: float = None, name: str = "", density: float = None
+) -> list:
     """
     One compound, in the same shape molport.find_options returns, so a
     caller can treat every source identically.
@@ -305,7 +307,7 @@ def find_options(smiles: str, grams: float = None, name: str = "") -> list:
 
     # Sort by what it actually costs to get enough, then truncate. The order
     # of these two lines is the whole fix.
-    options.sort(key=lambda o: total_cost(o, grams))
+    options.sort(key=lambda o: total_cost(o, grams, density))
     options = options[:MAX_OPTIONS]
 
     # After the sort, not before: this note has to land on the row a reader

@@ -97,6 +97,7 @@ def find_options(
     name: str = "",
     sources: List[str] = None,
     min_purity: float = None,
+    density: float = None,
 ) -> List[dict]:
     """
     Every offer for one compound, from every marketplace with a key set.
@@ -125,7 +126,7 @@ def find_options(
     when that difference matters, which for a purchase decision it usually
     does.
     """
-    return search(smiles, grams, name, sources, min_purity).options
+    return search(smiles, grams, name, sources, min_purity, density).options
 
 
 class Result(NamedTuple):
@@ -152,6 +153,7 @@ def search(
     name: str = "",
     sources: List[str] = None,
     min_purity: float = None,
+    density: float = None,
 ) -> Result:
     """
     find_options, but it also tells you which sources failed.
@@ -181,7 +183,10 @@ def search(
         # A cached answer is still an answer, and costs no request. The
         # config string goes into the key because shipping country and
         # category filters change what comes back.
-        config = f"{getattr(module, 'SHIP_TO', '')}:{getattr(module, 'CATEGORIES', '')}"
+        config = (
+            f"{getattr(module, 'SHIP_TO', '')}:"
+            f"{getattr(module, 'CATEGORIES', '')}:{density or ''}"
+        )
         found = cache.get(key, smiles, grams, config)
         if found is not None:
             for option in found:
@@ -190,7 +195,12 @@ def search(
             continue
 
         try:
-            found = module.find_options(smiles, grams, name) or []
+            try:
+                found = module.find_options(smiles, grams, name, density) or []
+            except TypeError:
+                # Sources that do not take a density (MolPort, Mcule quote by
+                # mass only) keep the three-argument signature.
+                found = module.find_options(smiles, grams, name) or []
         except SourceError as e:
             # One marketplace being down must not lose the others' answers,
             # but it must not look like an answer either.
@@ -215,7 +225,9 @@ def search(
         for option in options:
             option["meets_purity"] = _meets_purity(option, min_purity)
 
-    options.sort(key=lambda o: (_purity_rank(o, min_purity), _total_cost(o, grams)))
+    options.sort(
+        key=lambda o: (_purity_rank(o, min_purity), total_cost(o, grams, density))
+    )
     return Result(options, errors)
 
 

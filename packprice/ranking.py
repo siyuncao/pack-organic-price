@@ -23,9 +23,14 @@ import math
 import re
 from typing import Optional
 
-# Pack units that can be compared with an amount in grams. A bottle quoted in
-# millilitres cannot, without a density this package does not have.
+# Pack units that convert to grams on their own.
 TO_GRAMS = {"g": 1.0, "mg": 0.001, "kg": 1000.0}
+
+# Pack units that convert only if a density is supplied. Suppliers quote
+# liquids either way — Fluorochem lists 2-fluoropyridine by mass, Acros lists
+# the same compound as 5 ml — and without a density the two cannot be
+# compared at all.
+TO_ML = {"ml": 1.0, "l": 1000.0, "litre": 1000.0, "liter": 1000.0, "ul": 0.001}
 
 
 def price_of(option: dict) -> Optional[float]:
@@ -45,14 +50,33 @@ def price_of(option: dict) -> Optional[float]:
         return None
 
 
-def grams_of(option: dict) -> Optional[float]:
-    """Pack size in grams, or None when it is quoted by volume."""
-    scale = TO_GRAMS.get(str(option.get("pack_size_unit") or "").lower())
+def grams_of(option: dict, density: float = None) -> Optional[float]:
+    """
+    Pack size in grams, or None if it cannot be worked out.
+
+    A bottle quoted in millilitres needs a density. Without one this returns
+    None and the offer sorts last, which used to mean a 500 mL bottle of a
+    liquid could never win against any gram-quoted offer however expensive.
+    Pass density in g/mL and they become comparable.
+    """
     amount = option.get("pack_size_amount")
-    return amount * scale if scale and amount is not None else None
+    if amount is None:
+        return None
+
+    unit = str(option.get("pack_size_unit") or "").lower()
+
+    scale = TO_GRAMS.get(unit)
+    if scale:
+        return amount * scale
+
+    volume_scale = TO_ML.get(unit)
+    if volume_scale and density:
+        return amount * volume_scale * density
+
+    return None
 
 
-def total_cost(option: dict, grams: float = None) -> tuple:
+def total_cost(option: dict, grams: float = None, density: float = None) -> tuple:
     """
     What this offer costs to satisfy the need, as a sort key.
 
@@ -62,10 +86,10 @@ def total_cost(option: dict, grams: float = None) -> tuple:
     cheaper.
 
     Returns a tuple so unusable offers sort last rather than crashing the run:
-    no price, or a pack quoted by volume when the need is a mass.
+    no price, or a pack quoted by volume with no density to convert it.
     """
     price = price_of(option)
-    pack = grams_of(option)
+    pack = grams_of(option, density)
 
     if price is None:
         return (2, float("inf"))

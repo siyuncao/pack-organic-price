@@ -76,6 +76,28 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
     """
     One compound, one quote request, in this package's option shape.
 
+    RETURNS AT MOST ONE OFFER, and that is MolPort's design rather than a
+    limit of this client. List Search is a procurement endpoint: you give it
+    an amount and a selection method and it picks. Their website shows 73
+    offers from 21 suppliers for 2-fluoropyridine; the API returns the one it
+    considers best.
+
+    Checked, so it is not a guess:
+
+        /availability-searches   returns "in stock" and nothing else, no
+                                 prices, no suppliers
+        /molecule/load           the endpoint that does list every offer,
+                                 refused with "User is not recognized or
+                                 allowed request" on a Basic key
+
+    That matters because MolPort chooses on product price, and the shipping
+    it adds afterwards varies from $33 to $170 by supplier. So its "lowest
+    price" is not necessarily the cheapest order.
+
+    The full catalogue, with price by pack size, is in the Professional FTP
+    database rather than this API. Loading that is a different job from
+    querying an API and is deliberately not done here.
+
     Returns [] when MolPort has no offer. That is a real answer, not a
     failure: it means no supplier in their network currently sells it, and
     the caller should fall back to the scraper.

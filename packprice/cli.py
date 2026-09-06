@@ -15,7 +15,7 @@ import argparse
 import json
 import sys
 
-from . import __version__, _price, _purity, cache, search
+from . import __version__, _grams, _price, _purity, cache, search
 
 
 def _fmt_pack(option: dict) -> str:
@@ -54,6 +54,11 @@ def main(argv=None) -> int:
         help="minimum purity the procedure requires, as a percentage",
     )
     parser.add_argument(
+        "--density", "-d", type=float,
+        help="g/mL, so bottles quoted by volume can be compared with ones "
+             "quoted by mass; without it they always sort last",
+    )
+    parser.add_argument(
         "--sources", "-s",
         help="comma separated subset, e.g. molport,chemspace",
     )
@@ -77,7 +82,8 @@ def main(argv=None) -> int:
 
     sources = args.sources.split(",") if args.sources else None
     result = search(
-        args.smiles, args.grams, args.name, sources, min_purity=args.purity
+        args.smiles, args.grams, args.name, sources,
+        min_purity=args.purity, density=args.density,
     )
 
     if args.json:
@@ -120,12 +126,8 @@ def main(argv=None) -> int:
         if args.grams:
             import math
 
-            price, pack = _price(option), None
-            scale = {"g": 1.0, "mg": 0.001, "kg": 1000.0}.get(
-                str(option.get("pack_size_unit") or "").lower()
-            )
-            if scale and option.get("pack_size_amount"):
-                pack = option["pack_size_amount"] * scale
+            price = _price(option)
+            pack = _grams(option, args.density)
             if price is not None and pack:
                 packs = max(1, math.ceil(args.grams / pack))
                 total = f"${packs * price:g}" + (f" x{packs}" if packs > 1 else "")
