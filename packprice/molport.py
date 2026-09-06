@@ -41,7 +41,22 @@ from .errors import SourceError
 API_KEY = os.environ.get("MOLPORT_API_KEY", "")
 BASE = "https://api.molport.com/v1"
 
-# MolPort quotes by mass only. Volumes have to be converted first.
+# MolPort's Basic API quotes by mass only, and returns exactly ONE offer.
+#
+# This costs real money and cannot be fixed from here. Triethylamine, 21 mL
+# needed: the API answers A2B Chem, 50 g, $57. The MolPort website shows 83
+# offers for the same molecule, including 25 mL at $17 and 250 mL at $16.
+# Both are cheaper than what the API returns and neither can be reached.
+#
+# Measured, not assumed. 'measure' rejects everything except 'g' and 'mg'.
+# All three selection methods, 'lowest price', 'best offer' and 'minimum
+# count of shipments', return one mass-quoted row. /availability-searches
+# answers only "in stock", with no offers at all.
+#
+# So a liquid is priced by weight here and the volume packs stay invisible.
+# The route to them is the PROFESSIONAL FTP database, which carries every
+# offer with its pack size. Loading that is a different job from querying an
+# API and is deliberately not done here.
 MEASURE = "g"
 
 # Shipping cost and availability both depend on where it is going.
