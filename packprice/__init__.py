@@ -240,10 +240,63 @@ def search(
         for option in options:
             option["meets_purity"] = _meets_purity(option, min_purity)
 
+    # Four bands, worst failure first. Cost only decides between offers that
+    # are equally acceptable, because the cheapest row is not the right answer
+    # when it is the wrong chemical, the wrong grade, or a drum.
     options.sort(
-        key=lambda o: (_purity_rank(o, min_purity), total_cost(o, grams, density))
+        key=lambda o: (
+            _match_rank(o),
+            _purity_rank(o, min_purity),
+            _overbuy_rank(o, grams, density),
+            total_cost(o, grams, density),
+        )
     )
     return Result(options, errors)
+
+
+# A pack more than this many times the amount needed is ranked below one that
+# fits, however cheap it is. Set from a chemist's judgement rather than from
+# arithmetic: at 15 g needed the cheapest way to end up with enough was a 1 kg
+# bottle at $14.63, beating 25 g at $27, and a kilogram of an amine on a bench
+# for a 15 g reaction is a storage, hazard and shelf-life problem the price
+# comparison cannot see.
+MAX_OVERBUY = 5.0
+
+
+def _match_rank(option: dict) -> int:
+    """
+    0 for the compound that was asked for, 1 for anything else.
+
+    ChemSpace answers a structure search with the structure AND its salts.
+    Those are different chemicals and they are systematically cheaper, so they
+    have to be banded here too, not only inside the ChemSpace client: this
+    sort runs over every source's offers after the fact and would otherwise
+    lift a salt straight back to the top.
+
+    Sources that report no match type (MolPort, Mcule) rank 0. Absence of the
+    field is not evidence of a mismatch.
+    """
+    match = str(option.get("match_type") or "").lower()
+    return 0 if match in ("exactmatch", "exact", "perfect", "") else 1
+
+
+def _overbuy_rank(option: dict, grams: float = None, density: float = None) -> int:
+    """
+    0 for a pack a lab would actually order, 1 for a drum.
+
+    Nothing is dropped: the drum is still listed, and a chemist who wants it
+    can take it. It just stops outranking a bottle that fits.
+
+    Unknown either way ranks 0. With no amount needed there is nothing to be
+    excessive relative to, and a pack whose size will not convert to grams is
+    already sorted last by total_cost.
+    """
+    if not grams:
+        return 0
+    pack = grams_of(option, density)
+    if pack is None:
+        return 0
+    return 1 if pack > grams * MAX_OVERBUY else 0
 
 
 def _meets_purity(option: dict, min_purity: float):

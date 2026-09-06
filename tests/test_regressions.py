@@ -162,3 +162,55 @@ class SaltFormsDoNotOutrankTheCompoundAskedFor(unittest.TestCase):
     def test_salt_forms_are_kept_not_dropped(self):
         from packprice import chemspace
         self.assertEqual(chemspace._match_rank({"match_type": "SaltForm"}), 1)
+
+
+class DrumsDoNotOutrankBottles(unittest.TestCase):
+    """
+    Ranking on cheapest-way-to-enough alone recommended a 1 kg bottle of
+    triethylamine at $14.63 for a 15 g reaction, beating 25 g at $27. The
+    arithmetic is right and the answer is wrong: a kilogram of an amine on a
+    bench raises storage, hazard and shelf-life problems a price cannot see.
+    """
+
+    def setUp(self):
+        self.need = 15.25
+        self.bottle = {"pack_size_amount": 25, "pack_size_unit": "g", "price": "$27"}
+        self.drum = {"pack_size_amount": 1, "pack_size_unit": "kg", "price": "$14.63"}
+
+    def test_a_drum_is_banded_out(self):
+        self.assertEqual(packprice._overbuy_rank(self.drum, self.need), 1)
+
+    def test_a_bottle_that_fits_is_not(self):
+        self.assertEqual(packprice._overbuy_rank(self.bottle, self.need), 0)
+
+    def test_the_boundary_is_five_times(self):
+        just_under = {"pack_size_amount": self.need * 5 - 0.1, "pack_size_unit": "g"}
+        just_over = {"pack_size_amount": self.need * 5 + 0.1, "pack_size_unit": "g"}
+        self.assertEqual(packprice._overbuy_rank(just_under, self.need), 0)
+        self.assertEqual(packprice._overbuy_rank(just_over, self.need), 1)
+
+    def test_no_amount_needed_bands_nothing(self):
+        self.assertEqual(packprice._overbuy_rank(self.drum, None), 0)
+
+    def test_an_unconvertible_pack_is_not_penalised_twice(self):
+        # Already sorted last by total_cost; must not also be called a drum.
+        self.assertEqual(
+            packprice._overbuy_rank({"pack_size_amount": 500, "pack_size_unit": "mL"},
+                                    self.need), 0)
+
+
+class TheGlobalSortAlsoBandsSaltForms(unittest.TestCase):
+    """
+    chemspace.py banded salts inside its own client, but search() re-sorts
+    every source's offers afterwards. Without the same band there, a salt that
+    survived truncation was lifted straight back to the top.
+    """
+
+    def test_salt_forms_rank_after_exact_matches(self):
+        self.assertLess(
+            packprice._match_rank({"match_type": "ExactMatch"}),
+            packprice._match_rank({"match_type": "SaltForm"}),
+        )
+
+    def test_molport_and_mcule_are_not_penalised_for_silence(self):
+        self.assertEqual(packprice._match_rank({}), 0)
