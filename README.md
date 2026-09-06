@@ -193,15 +193,18 @@ failed or honestly found nothing.
 Measured by hand against the fifteen orderable compounds of
 *Org. Synth.* **2023**, *100*, 136.
 
-| Source | Answered | Cheapest on | Mean seconds |
-|---|---|---|---|
-| ChemSpace | 15 / 15 | 12 | 3.1 |
-| Mcule | 8 / 15 | 1 | 66.1 |
-| MolPort | 5 / 15 | 2 | 10.2 |
+| Source | Answered | Mean seconds |
+|---|---|---|
+| ChemSpace | 15 / 15 | 2.4 |
+| Mcule | 9 / 15 | 2.0 |
+| MolPort | 5 / 15 | 11.2 |
 
 None is a superset of the others, so ask all three — but ChemSpace answered
-everything and was usually cheapest, and Mcule is twenty times slower than
-the other two.
+everything and was cheapest on almost all of it, and MolPort returns a single
+offer where its own website lists 73.
+
+The sources are queried in parallel, so a compound costs however long the
+slowest one takes rather than the sum.
 
 Full table, method and caveats in [BENCHMARK.md](BENCHMARK.md).
 
