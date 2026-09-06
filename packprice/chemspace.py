@@ -248,6 +248,19 @@ def _search_exact(smiles: str) -> dict:
         raise SourceError("chemspace", f"{type(e).__name__}: {e}")
 
 
+def _match_rank(option: dict) -> int:
+    """
+    0 for the compound that was asked for, 1 for anything else.
+
+    ChemSpace labels each item ExactMatch or SaltForm. Nothing is dropped,
+    for the same reason an unpriced offer is kept: a chemist who wants the
+    hydrochloride is better served by seeing it than by a list that quietly
+    went shorter. It just must not outrank the thing that was searched for.
+    """
+    match = str(option.get("match_type") or "").lower()
+    return 0 if match in ("exactmatch", "exact", "perfect", "") else 1
+
+
 def find_options(
     smiles: str, grams: float = None, name: str = "", density: float = None
 ) -> list:
@@ -289,6 +302,16 @@ def find_options(
 
                 options.append(
                     {
+                        # ChemSpace answers a structure search with the
+                        # structure AND its salts and complexes. For
+                        # triethylamine that is 1 ExactMatch and 16 SaltForm:
+                        # the hydrochloride, the borane complex, the tris-HF
+                        # complex. They are different chemicals, not cheaper
+                        # grades of the same one, and they are cheaper, so
+                        # ranking on price alone puts a solid salt at the top
+                        # of a list for a liquid free base. Carried as a field
+                        # so the ranking can band on it.
+                        "match_type": item.get("matchType"),
                         "supplier": offer.get("vendorName") or "unknown",
                         "catalog_number": offer.get("vendorCode"),
                         "product_url": item.get("link"),
@@ -307,7 +330,12 @@ def find_options(
 
     # Sort by what it actually costs to get enough, then truncate. The order
     # of these two lines is the whole fix.
-    options.sort(key=lambda o: total_cost(o, grams, density))
+    #
+    # Exact matches first, whatever they cost. A salt form is a different
+    # compound: ordering triethylamine hydrochloride when the procedure calls
+    # for triethylamine is the worst failure this can have, and the salts are
+    # systematically cheaper, so price alone ranks them first every time.
+    options.sort(key=lambda o: (_match_rank(o), total_cost(o, grams, density)))
     options = options[:MAX_OPTIONS]
 
     # After the sort, not before: this note has to land on the row a reader

@@ -134,3 +134,31 @@ class SubGramAmountsGetTheirOwnCacheEntry(unittest.TestCase):
             cache._key("molport", "CCO", None),
             cache._key("molport", "CCO", 1),
         )
+
+
+class SaltFormsDoNotOutrankTheCompoundAskedFor(unittest.TestCase):
+    """
+    ChemSpace answers a structure search with the structure and its salts.
+    Triethylamine returns 1 ExactMatch and 16 SaltForm: the hydrochloride,
+    the borane complex, the tris-HF complex. The salts are cheaper, so
+    ranking on price alone put a solid salt at the top of a list for a
+    liquid free base. On the app's own grading scale that is a wrong
+    compound, the worst score there is.
+    """
+
+    def test_exact_match_outranks_a_cheaper_salt(self):
+        from packprice import chemspace
+        self.assertLess(
+            chemspace._match_rank({"match_type": "ExactMatch"}),
+            chemspace._match_rank({"match_type": "SaltForm"}),
+        )
+
+    def test_sources_without_a_match_type_are_not_penalised(self):
+        from packprice import chemspace
+        # MolPort and Mcule do not report one; they must not sort last.
+        self.assertEqual(chemspace._match_rank({}), 0)
+        self.assertEqual(chemspace._match_rank({"match_type": None}), 0)
+
+    def test_salt_forms_are_kept_not_dropped(self):
+        from packprice import chemspace
+        self.assertEqual(chemspace._match_rank({"match_type": "SaltForm"}), 1)
