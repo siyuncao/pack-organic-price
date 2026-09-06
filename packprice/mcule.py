@@ -16,6 +16,13 @@ rounded down to something Mcule is likely to have. A quote for 26,800 mg or
 nothing at all is an honest answer. A quote for 10 mg dressed up as an answer
 to a 26.8 g question is the mistake this whole package exists to avoid.
 
+WHAT THE PRICE MEANS. Mcule quotes a minimum order price, not a price per
+quantity. Measured on 2-fluoropyridine: 1 mg, 100 mg and 7,600 mg all come
+back at $6, and only at 100 g does it move, to $25 from a different supplier.
+So the number is real, but it is a floor rather than a function of the amount,
+and it is a GET QUOTE estimate with a two week lead time rather than stock on
+a shelf. Do not describe it as "the price for exactly what you asked for".
+
 TWO REQUESTS PER COMPOUND. Mcule identifies compounds by its own IDs, so a
 SMILES has to be looked up first and priced second. The rate limit is 20 a
 minute and 200 an hour for an authenticated key, so a fifteen-compound paper

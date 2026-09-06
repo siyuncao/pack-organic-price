@@ -66,10 +66,20 @@ could be kept, it would be that one.
 **MolPort is not redundant.** It was cheapest on two compounds ChemSpace also
 had, and its catalogue overlaps rather than nests.
 
-**Mcule prices quantities, not packs.** Ask it for 16.3 g of zinc dust and it
-quotes 16,300 mg — $5, against ChemSpace's $17 for a 25 g bottle. When it has
-a compound at the amount wanted, nothing is left over. It only had 8 of 15,
-and it is by far the slowest.
+**Mcule quotes a minimum order price, not a per-quantity one.** Asking for
+16.3 g of zinc dust returns $5, and asking for 1 mg returns the same $5. The
+price is flat up to roughly 10 g and only moves above it:
+
+    2-fluoropyridine, Mcule
+        1 mg      $6    98%   14 working days
+      100 mg      $6
+     7,600 mg     $6
+    100,000 mg   $25    99%   22 working days   (a different supplier)
+
+So a quote is real, but "prices the exact amount you ask for" would be the
+wrong description: ordering 7.6 g costs the same as ordering 1 mg. These are
+also GET QUOTE estimates with a two week lead time, not stock on a shelf.
+It had 8 of 15 and is by far the slowest.
 
 **Mcule's 66 seconds per compound** is a real cost. It needs two requests, a
 SMILES lookup and then a price, and the price call is slow. For a fifteen

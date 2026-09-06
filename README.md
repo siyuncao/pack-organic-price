@@ -182,11 +182,12 @@ the other two.
 
 Full table, method and caveats in [BENCHMARK.md](BENCHMARK.md).
 
-Mcule works differently: it prices a quantity rather than listing bottles, so
-asking for 7.6 g returns a quote for 7.6 g. That removes overbuying entirely
-when it has the compound. Its amounts are in milligrams, and its defaults are
-1 mg to 10 mg, which is a reminder of who it is built for — the amount needed
-is sent as-is rather than rounded down to something it is likely to stock.
+Mcule works differently: it quotes a minimum order price rather than listing
+bottles. Asking for 7.6 g and asking for 1 mg both return $6, and the price
+only moves above roughly 10 g. Its amounts are in milligrams and its defaults
+are 1 mg to 10 mg, a reminder of who it is built for. The amount needed is
+sent as-is rather than rounded down to something it is likely to stock, and
+its quotes carry a two week lead time rather than being stock on a shelf.
 
 ## What this is not
 
