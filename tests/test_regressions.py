@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import packprice
 from packprice import cache, molport
 
 
