@@ -104,7 +104,10 @@ def main(argv=None) -> int:
         return 0 if result.complete else 1
 
     show_purity = args.purity is not None
-    header = f"{'SOURCE':10} {'SUPPLIER':26} {'PACK':>10} {'PRICE':>9} {'PURITY':>7}"
+    header = (
+        f"{'SOURCE':10} {'SUPPLIER':26} {'PACK':>10} {'PRICE':>9} "
+        f"{'SHIP':>6} {'PURITY':>7}"
+    )
     if args.grams:
         header += f" {'TOTAL':>9}"
     header += "  AGE"
@@ -118,10 +121,12 @@ def main(argv=None) -> int:
             meets = option.get("meets_purity")
             purity_text += {True: "", False: " !", None: " ?"}[meets]
 
+        ship = option.get("shipping_usd")
+        ship_text = f"+${ship:g}" if ship else "-"
         row = (
             f"{option['source']:10} {str(option['supplier'])[:26]:26} "
             f"{_fmt_pack(option):>10} {str(option['price'] or '-'):>9} "
-            f"{purity_text:>7}"
+            f"{ship_text:>6} {purity_text:>7}"
         )
         if args.grams:
             import math
@@ -143,6 +148,13 @@ def main(argv=None) -> int:
 
     if show_purity:
         print("\n! below the purity asked for   ? no purity stated")
+
+    if any(o.get("shipping_usd") for o in result.options[: args.limit]):
+        print(
+            "\nSHIP is delivery cost where the source reports it. Only MolPort "
+            "does.\nIt is not added into TOTAL: shipping is charged per "
+            "shipment, not per compound."
+        )
 
     if not result.complete:
         print("\nIncomplete — these sources did not answer:")

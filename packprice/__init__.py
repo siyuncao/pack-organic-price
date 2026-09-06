@@ -47,6 +47,7 @@ endpoint has returned 404 since their last commit two years ago.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, NamedTuple, Optional
 
 from . import cache, chemspace, mcule, molport
@@ -169,57 +170,64 @@ def search(
     options: List[dict] = []
     errors: Dict[str, str] = {}
 
-    for key in wanted:
+    # The sources know nothing about each other, so ask them at the same time.
+    # Measured per compound: MolPort 10s, ChemSpace 3s, Mcule 66s. Sequentially
+    # that is 79 seconds of waiting for 79 seconds of network. In parallel it
+    # is however long the slowest one takes.
+    #
+    # Threads rather than async because every call here is a blocking socket
+    # read in the standard library, and three threads is not a concurrency
+    # design worth having an event loop for.
+    def ask(key):
         module = SOURCES.get(key)
         if module is None:
-            errors[key] = "no such source"
-            continue
+            return key, None, "no such source"
 
         # A source with no key is skipped, not failed. Not configuring
         # Mcule is a choice; Mcule being down is an incident.
         if not getattr(module, "API_KEY", ""):
-            continue
+            return key, [], None
 
         # A cached answer is still an answer, and costs no request. The
-        # config string goes into the key because shipping country and
-        # category filters change what comes back.
+        # config string goes into the key because shipping country, category
+        # filters and density all change what comes back.
         config = (
             f"{getattr(module, 'SHIP_TO', '')}:"
             f"{getattr(module, 'CATEGORIES', '')}:{density or ''}"
         )
         found = cache.get(key, smiles, grams, config)
         if found is not None:
-            for option in found:
-                option["source"] = key
-                options.append(option)
-            continue
+            return key, found, None
 
         try:
             try:
                 found = module.find_options(smiles, grams, name, density) or []
             except TypeError:
-                # Sources that do not take a density (MolPort, Mcule quote by
-                # mass only) keep the three-argument signature.
+                # Sources that do not take a density (MolPort and Mcule quote
+                # by mass only) keep the three-argument signature.
                 found = module.find_options(smiles, grams, name) or []
         except SourceError as e:
             # One marketplace being down must not lose the others' answers,
             # but it must not look like an answer either.
             log.warning("%s failed for %s: %s", key, smiles, e.detail)
-            errors[key] = e.detail
-            continue
+            return key, None, e.detail
         except Exception as e:
             log.warning("%s raised for %s: %r", key, smiles, e)
-            errors[key] = f"{type(e).__name__}: {e}"
-            continue
+            return key, None, f"{type(e).__name__}: {e}"
 
-        # Only successes are cached. A failure reaching this point would
-        # have hit `continue` above, which is the whole reason those are
-        # separate branches.
+        # Only successes are cached. A failure returns above, which is the
+        # whole reason those are separate paths.
         cache.put(key, smiles, grams, found, config)
+        return key, found, None
 
-        for option in found:
-            option["source"] = key
-            options.append(option)
+    with ThreadPoolExecutor(max_workers=len(wanted) or 1) as pool:
+        for key, found, error in pool.map(ask, wanted):
+            if error is not None:
+                errors[key] = error
+                continue
+            for option in found:
+                option["source"] = key
+                options.append(option)
 
     if min_purity is not None:
         for option in options:

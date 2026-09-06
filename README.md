@@ -60,6 +60,29 @@ Installs as `pack-organic-price`, imports as `packprice` — the long name for
 the package index, the short one for typing. No dependencies beyond the
 standard library.
 
+## Shipping
+
+MolPort reports what delivery costs. Their website shows it beside every price
+as `+ $45.00 Direct Shipping to US`, and it runs from $33 to $170 depending on
+the supplier, so a $10 bottle can be a $55 order. That number is carried on
+each offer as `shipping_usd`, and the CLI shows it in a `SHIP` column.
+
+**It is not added into the price**, for two reasons:
+
+Shipping is charged per shipment, not per compound. Order five reagents from
+one supplier and you pay it once, so folding it into a per-compound price
+would overstate a real basket.
+
+And ChemSpace and Mcule do not report it at all. Their offer fields carry
+lead time, purity and price and nothing else. Adding shipping only where it
+is known would make the one source honest enough to report it look like the
+most expensive one.
+
+So the ranking compares product prices, which is a like-for-like comparison,
+and the delivery cost is shown next to it rather than hidden. **A comparison
+across sources is not a comparison of what you will pay**, and that is a
+limit of what these APIs expose, not something this package can fix.
+
 ## Purity
 
 A procedure that specifies 99% cannot be run on 90% material, however cheap it

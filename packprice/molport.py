@@ -44,6 +44,9 @@ BASE = "https://api.molport.com/v1"
 # MolPort quotes by mass only. Volumes have to be converted first.
 MEASURE = "g"
 
+# Shipping cost and availability both depend on where it is going.
+SHIPPING_COUNTRY = os.environ.get("MOLPORT_SHIP_TO", "US")
+
 
 def _call(method: str, path: str, body: dict = None) -> dict:
     req = urllib.request.Request(
@@ -118,7 +121,7 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
             "amount": amount,
             "min_amount": 1,
             "measure": MEASURE,
-            "shipping_country": "US",
+            "shipping_country": SHIPPING_COUNTRY,
             # perfect/exact first, 'any' last, so a loose structural match is
             # only used when nothing better exists.
             "match_types": ["perfect", "exact", "racemate", "any"],
@@ -144,6 +147,19 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
     data = _call("GET", f"/list-searches/{key}")
     rows = (data.get("request") or {}).get("results") or []
 
+    # MolPort is the only source that reports what delivery costs, and it is
+    # in a summary block separate from the offer. Their website shows it as
+    # "+ $45.00 Direct Shipping to US" beside every price, and it ranges from
+    # $33 to $170 by supplier, so a $10 bottle can be a $55 order.
+    #
+    # It is attached to the offer but deliberately NOT added into the price.
+    # Shipping is charged per shipment, not per compound: order five things
+    # from one supplier and you pay it once. Folding it into a per-compound
+    # price would overstate a basket, and would also make the only source
+    # honest enough to report it look like the most expensive one.
+    summary = data.get("summary") or {}
+    shipping = (summary.get("shipping") or {}).get("price")
+
     options = []
     for r in rows:
         if r.get("status") != "found":
@@ -152,6 +168,8 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
         price = r.get("unit_price")
 
         notes = [f"via MolPort, match {r.get('match_type')}"]
+        if shipping:
+            notes.append(f"plus ${shipping:g} shipping to {SHIPPING_COUNTRY}")
         if r.get("delivery_days"):
             notes.append(f"{r['delivery_days']} working days")
         if r.get("hazardous"):
@@ -181,6 +199,7 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
                 # An offer returned by the API is orderable through the API.
                 # That is the definition of not needing a phone call.
                 "needs_phone_call": "no",
+                "shipping_usd": shipping,
                 "notes": ". ".join(notes),
             }
         )
