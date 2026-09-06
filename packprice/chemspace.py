@@ -45,6 +45,7 @@ import urllib.request
 from typing import Optional
 
 from .errors import SourceError
+from .ranking import total_cost
 
 API_KEY = os.environ.get("CHEMSPACE_API_KEY", "")
 BASE = "https://api.chem-space.com"
@@ -67,8 +68,17 @@ CATEGORIES = "CSSB,CSMB"
 # CHEMSPACE_SHIP_TO when ordering somewhere else.
 SHIP_TO = os.environ.get("CHEMSPACE_SHIP_TO", "US")
 
-# ChemSpace lists every pack a vendor sells, so a popular building block can
-# come back with dozens of rows. A caller only needs enough to choose from.
+# ChemSpace lists every pack every vendor sells, so one common building block
+# comes back with 120 priced rows from 32 suppliers.
+#
+# The cap is safe ONLY because the list is sorted by total cost first, using
+# the same rule the caller ranks by. It used to be sorted by which pack was
+# closest in SIZE to the amount needed, which threw away the cheapest buy on
+# half the compounds tested: Et3N kept a 10 g bottle at $4.60 and discarded a
+# 100 g bottle at $3.45.
+#
+# Truncating on one rule and ranking on another is the bug. Same rule, and a
+# small cap costs nothing.
 MAX_OPTIONS = 12
 
 _token = {"value": "", "expires_at": 0.0}
@@ -244,9 +254,9 @@ def find_options(smiles: str, grams: float = None, name: str = "") -> list:
     caller can treat every source identically.
 
     grams is accepted but not sent: ChemSpace has no amount parameter, it
-    returns every pack a vendor lists. It is used to sort, so the packs
-    closest to what the procedure needs come first and the caller sees the
-    useful ones even when the list is truncated.
+    returns every pack a vendor lists. It is used to RANK them, by what each
+    would actually cost to reach that amount, so the cheapest survives the
+    MAX_OPTIONS cap.
 
     Returns [] when ChemSpace has no priced offer, which is a real answer and
     not an error: the caller falls through to the next source.
@@ -293,19 +303,16 @@ def find_options(smiles: str, grams: float = None, name: str = "") -> list:
                     }
                 )
 
+    # Sort by what it actually costs to get enough, then truncate. The order
+    # of these two lines is the whole fix.
+    options.sort(key=lambda o: total_cost(o, grams))
+    options = options[:MAX_OPTIONS]
+
+    # After the sort, not before: this note has to land on the row a reader
+    # will actually see, and before the sort it was attached to whatever
+    # happened to be first in insertion order and then shuffled away.
     if unpriced and options:
         options[0]["notes"] += f". {unpriced} further offers quote on request"
 
-    if grams:
-        options.sort(key=lambda o: abs((_in_grams(o) or 0) - grams))
+    return options
 
-    return options[:MAX_OPTIONS]
-
-
-def _in_grams(option: dict) -> Optional[float]:
-    """Pack size in grams, for sorting only. None when the unit is not a mass."""
-    scale = {"g": 1.0, "mg": 0.001, "kg": 1000.0}.get(
-        str(option.get("pack_size_unit") or "").lower()
-    )
-    amount = option.get("pack_size_amount")
-    return amount * scale if scale and amount is not None else None

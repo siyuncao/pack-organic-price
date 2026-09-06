@@ -51,6 +51,14 @@ from typing import Dict, List, NamedTuple, Optional
 
 from . import cache, chemspace, mcule, molport
 from .errors import SourceError
+from .ranking import grams_of, price_of, total_cost
+
+# Kept under their old private names so existing callers and tests keep
+# working. ranking.py is where these actually live now, because the vendor
+# modules need them too and cannot import from here.
+_grams = grams_of
+_price = price_of
+_total_cost = total_cost
 
 log = logging.getLogger(__name__)
 
@@ -62,14 +70,6 @@ SOURCES = {
     "mcule": mcule,
 }
 
-
-def _grams(option: dict) -> Optional[float]:
-    """Pack size in grams. None when the pack is quoted by volume."""
-    scale = {"g": 1.0, "mg": 0.001, "kg": 1000.0}.get(
-        str(option.get("pack_size_unit") or "").lower()
-    )
-    amount = option.get("pack_size_amount")
-    return amount * scale if scale and amount is not None else None
 
 
 def _purity(option: dict) -> Optional[float]:
@@ -89,24 +89,6 @@ def _purity(option: dict) -> Optional[float]:
     except ValueError:
         return None
 
-
-def _price(option: dict) -> Optional[float]:
-    """
-    The number in a price string, or None.
-
-    Suppliers write prices in prose: "$84.85 / Each of 1", "USD 56.60",
-    "$1,299". Sorting has to cope with all of them, and a string it cannot
-    read sorts last rather than crashing the run.
-    """
-    import re
-
-    match = re.search(r"[\d,]+\.?\d*", str(option.get("price") or ""))
-    if not match:
-        return None
-    try:
-        return float(match.group().replace(",", ""))
-    except ValueError:
-        return None
 
 
 def find_options(
@@ -264,31 +246,6 @@ def _purity_rank(option: dict, min_purity: float = None) -> int:
         return 1
     return 0 if meets else 2
 
-
-def _total_cost(option: dict, grams: float = None) -> tuple:
-    """
-    What this offer costs to satisfy the need, as a sort key.
-
-    Packs are indivisible, so needing 30 g of something sold in 25 g bottles
-    means buying two of them. The comparison is between total prices paid,
-    not between unit prices, because a cheaper price per gram on a pack you
-    have to buy three of is not cheaper.
-
-    Returns a tuple so unusable offers sort last rather than crashing the
-    run: no price, or a pack quoted by volume when the need is a mass.
-    """
-    import math
-
-    price = _price(option)
-    pack = _grams(option)
-
-    if price is None:
-        return (2, float("inf"))
-    if grams is None or pack is None or pack <= 0:
-        return (1, price)
-
-    packs = max(1, math.ceil(grams / pack))
-    return (0, packs * price)
 
 
 def cheapest(smiles: str, grams: float = None, **kwargs) -> Optional[dict]:
