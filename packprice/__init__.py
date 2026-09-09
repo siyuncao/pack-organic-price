@@ -243,11 +243,19 @@ def search(
     # Four bands, worst failure first. Cost only decides between offers that
     # are equally acceptable, because the cheapest row is not the right answer
     # when it is the wrong chemical, the wrong grade, or a drum.
+    #
+    # Pack size is judged BEFORE purity, which is not the obvious order and is
+    # the one that survives contact with real data. Asking for 39 g of
+    # acetonitrile at 99% put a 150 kg Sigma drum at $18,425 on top, because
+    # it was the only offer meeting the grade and grade outranked everything.
+    # Both a drum and under-grade material are unusable, but a chemist can
+    # decide whether 95% will do for their step; nobody can decide to buy a
+    # hundred and fifty kilograms of solvent for one reaction.
     options.sort(
         key=lambda o: (
             _match_rank(o),
-            _purity_rank(o, min_purity),
             _overbuy_rank(o, grams, density),
+            _purity_rank(o, min_purity),
             total_cost(o, grams, density),
         )
     )

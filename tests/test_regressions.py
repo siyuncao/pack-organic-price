@@ -215,3 +215,40 @@ class TheGlobalSortAlsoBandsSaltForms(unittest.TestCase):
 
     def test_molport_and_mcule_are_not_penalised_for_silence(self):
         self.assertEqual(packprice._match_rank({}), 0)
+
+
+class PackSizeIsJudgedBeforeGrade(unittest.TestCase):
+    """
+    Asking for 39 g of acetonitrile at 99% put a 150 kg Sigma drum at
+    $18,425 at the top, because it was the only offer meeting the grade and
+    grade was ranked above pack size.
+
+    Both a drum and under-grade material are unusable, but a chemist can
+    decide whether 95% will do for their step. Nobody can decide to buy a
+    hundred and fifty kilograms of solvent for one reaction.
+    """
+
+    def setUp(self):
+        self.need = 39.3
+        self.drum = {"pack_size_amount": 150, "pack_size_unit": "kg",
+                     "price": "$18425.59", "purity_offered": "99.5%"}
+        self.bottle = {"pack_size_amount": 100, "pack_size_unit": "g",
+                       "price": "$27", "purity_offered": "95%"}
+
+    def _key(self, o, min_purity):
+        return (
+            packprice._match_rank(o),
+            packprice._overbuy_rank(o, self.need),
+            packprice._purity_rank(o, min_purity),
+        )
+
+    def test_an_under_grade_bottle_outranks_an_on_grade_drum(self):
+        self.assertLess(self._key(self.bottle, 99), self._key(self.drum, 99))
+
+    def test_the_drum_is_still_listed_not_dropped(self):
+        # Banded last, never removed: a chemist who wants it can see it.
+        self.assertEqual(packprice._overbuy_rank(self.drum, self.need), 1)
+
+    def test_on_grade_still_wins_between_two_sane_packs(self):
+        on_grade = dict(self.bottle, purity_offered="99.9%")
+        self.assertLess(self._key(on_grade, 99), self._key(self.bottle, 99))
