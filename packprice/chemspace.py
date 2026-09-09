@@ -312,6 +312,12 @@ def find_options(
                         # of a list for a liquid free base. Carried as a field
                         # so the ranking can band on it.
                         "match_type": item.get("matchType"),
+                        # Lead time as a number, not only inside the note.
+                        # ChemSpace shows it as its own column beside every
+                        # price, because a 14 day quote and a bottle on a
+                        # shelf are different purchases, and a caller that
+                        # can only read it out of prose cannot rank on it.
+                        "lead_time_days": offer.get("leadTimeDays"),
                         "supplier": offer.get("vendorName") or "unknown",
                         "catalog_number": offer.get("vendorCode"),
                         "product_url": item.get("link"),

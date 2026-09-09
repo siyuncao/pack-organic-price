@@ -200,6 +200,7 @@ def find_options(smiles: str, grams: float, name: str = "") -> list:
 
         options.append(
             {
+                "lead_time_days": r.get("delivery_days"),
                 "supplier": r.get("supplier_name") or "unknown",
                 "catalog_number": r.get("product_id") or r.get("molport_id"),
                 # No link. MolPort's API returns no product URL, and every

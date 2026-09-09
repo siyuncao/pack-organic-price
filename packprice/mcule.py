@@ -111,6 +111,7 @@ def find_options(smiles: str, grams: float = None, name: str = "") -> list:
 
         options.append(
             {
+                "lead_time_days": price.get("delivery_time_working_days"),
                 "supplier": "Mcule",
                 "catalog_number": mcule_id,
                 "product_url": url or f"https://mcule.com/{mcule_id}/",
