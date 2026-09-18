@@ -123,7 +123,10 @@ def find_options(smiles: str, grams: float = None, name: str = "") -> list:
                 "min_order_amount": None,
                 "min_order_unit": None,
                 "price": f"${price['price']}",
-                "needs_phone_call": "no",
+                # Mcule's price is a GET QUOTE estimate for the amount asked
+                # for, not a listed bottle: someone has to confirm it with
+                # them before it can be ordered.
+                "needs_phone_call": "yes",
                 "notes": ". ".join(notes),
             }
         )

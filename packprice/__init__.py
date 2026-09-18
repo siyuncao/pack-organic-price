@@ -256,6 +256,7 @@ def search(
             _match_rank(o),
             _overbuy_rank(o, grams, density),
             _purity_rank(o, min_purity),
+            _call_rank(o),
             total_cost(o, grams, density),
         )
     )
@@ -305,6 +306,18 @@ def _overbuy_rank(option: dict, grams: float = None, density: float = None) -> i
     if pack is None:
         return 0
     return 1 if pack > grams * MAX_OVERBUY else 0
+
+
+def _call_rank(option: dict) -> int:
+    """
+    0 for an offer that can be ordered as listed, 1 for one that needs a call.
+
+    After grade and pack size, not before: a quote for the right bottle still
+    beats an orderable drum. Among equally good offers, the one a chemist can
+    buy without phoning anyone comes first. Unknown ranks as orderable, since
+    the sources that leave it unset list prices directly.
+    """
+    return 1 if option.get("needs_phone_call") == "yes" else 0
 
 
 def _meets_purity(option: dict, min_purity: float):

@@ -252,3 +252,28 @@ class PackSizeIsJudgedBeforeGrade(unittest.TestCase):
     def test_on_grade_still_wins_between_two_sane_packs(self):
         on_grade = dict(self.bottle, purity_offered="99.9%")
         self.assertLess(self._key(on_grade, 99), self._key(self.bottle, 99))
+
+
+class QuotesRankBelowOrderableOffers(unittest.TestCase):
+    """
+    needs_phone_call was hard-coded "no" everywhere, so a Mcule GET QUOTE
+    estimate read as a bottle you could buy and could outrank one.
+    """
+
+    def test_mcule_marks_its_quotes(self):
+        from packprice import mcule
+        src = open(mcule.__file__).read()
+        self.assertIn('"needs_phone_call": "yes"', src)
+
+    def test_a_quote_ranks_after_an_orderable_offer(self):
+        self.assertLess(packprice._call_rank({"needs_phone_call": "no"}),
+                        packprice._call_rank({"needs_phone_call": "yes"}))
+
+    def test_unset_is_treated_as_orderable(self):
+        self.assertEqual(packprice._call_rank({}), 0)
+
+    def test_grade_still_outranks_the_call_band(self):
+        on_grade_quote = {"purity_offered": "99%", "needs_phone_call": "yes"}
+        below_grade_bottle = {"purity_offered": "95%", "needs_phone_call": "no"}
+        key = lambda o: (packprice._purity_rank(o, 99), packprice._call_rank(o))
+        self.assertLess(key(on_grade_quote), key(below_grade_bottle))
